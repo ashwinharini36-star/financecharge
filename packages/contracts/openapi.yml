@@ -1,0 +1,361 @@
+openapi: 3.0.3
+info:
+  title: Finance OS API
+  version: 0.1.0
+  description: Unified AP/AR/CPQ SaaS Platform
+servers:
+  - url: /api
+    description: API Server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    Organization:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        gstin: { type: string, nullable: true }
+        currency: { type: string, default: "INR" }
+        created_at: { type: string, format: date-time }
+    
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { type: string, enum: [Owner, FinanceManager, APClerk, ARClerk, SalesRep, Approver] }
+        status: { type: string, enum: [active, inactive] }
+    
+    Customer:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        billing_address: { type: object }
+        currency: { type: string, default: "INR" }
+        dunning_level: { type: integer, default: 0 }
+    
+    Product:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        name: { type: string }
+        sku: { type: string }
+        type: { type: string, enum: [one_time, subscription, usage] }
+        tax_code: { type: string }
+        uom: { type: string }
+    
+    Quote:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        status: { type: string, enum: [draft, sent, approved, rejected] }
+        currency: { type: string }
+        subtotal: { type: integer }
+        tax: { type: integer }
+        discount_total: { type: integer }
+        total: { type: integer }
+    
+    Invoice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid, nullable: true }
+        vendor_id: { type: string, format: uuid, nullable: true }
+        kind: { type: string, enum: [AR, AP] }
+        status: { type: string, enum: [draft, issued, partially_paid, paid, void] }
+        currency: { type: string }
+        subtotal: { type: integer }
+        tax: { type: integer }
+        total: { type: integer }
+        due_date: { type: string, format: date }
+        source: { type: string, enum: [CPQ, Manual, PO] }
+        po_number: { type: string, nullable: true }
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+                  organizations: 
+                    type: array
+                    items: { $ref: '#/components/schemas/Organization' }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /customers:
+    get:
+      tags: [Customers]
+      summary: List customers
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Customer list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Customer' }
+                  total: { type: integer }
+    post:
+      tags: [Customers]
+      summary: Create customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                billing_address: { type: object }
+                currency: { type: string, default: "INR" }
+      responses:
+        '201':
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+  /products:
+    get:
+      tags: [Products]
+      summary: List products
+      responses:
+        '200':
+          description: Product list
+    post:
+      tags: [Products]
+      summary: Create product
+      responses:
+        '201':
+          description: Product created
+
+  /quotes:
+    get:
+      tags: [CPQ]
+      summary: List quotes
+      responses:
+        '200':
+          description: Quote list
+    post:
+      tags: [CPQ]
+      summary: Create quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, currency, items]
+              properties:
+                customer_id: { type: string, format: uuid }
+                currency: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      qty: { type: number }
+                      unit_amount: { type: integer }
+                      discount_percent: { type: number, default: 0 }
+      responses:
+        '201':
+          description: Quote created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+
+  /quotes/{id}/approve:
+    post:
+      tags: [CPQ]
+      summary: Approve quote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Quote approved
+
+  /quotes/{id}/convert-to-invoice:
+    post:
+      tags: [CPQ]
+      summary: Convert quote to invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [AR, AP] }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Invoice list
+    post:
+      tags: [Invoices]
+      summary: Create invoice
+      responses:
+        '201':
+          description: Invoice created
+
+  /invoices/{id}/send:
+    post:
+      tags: [Invoices]
+      summary: Send invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invoice sent
+
+  /payments/webhook/{provider}:
+    post:
+      tags: [Payments]
+      summary: Payment webhook
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [stripe, razorpay] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '202':
+          description: Webhook accepted
+
+  /ap/invoices/ingest:
+    post:
+      tags: [AP]
+      summary: Upload vendor invoice (PDF)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                vendor_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Draft AP invoice created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+  /dashboard/cash-pulse:
+    get:
+      tags: [Dashboard]
+      summary: Get cash pulse data
+      responses:
+        '200':
+          description: Cash pulse metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_ar: { type: integer }
+                  overdue_ar: { type: integer }
+                  ap_due_7d: { type: integer }
+                  cash_position: { type: integer }
+                  daily_net_cash:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date }
+                        amount: { type: integer }

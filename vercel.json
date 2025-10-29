@@ -1,0 +1,9 @@
+{
+  "buildCommand": "cd app/frontend && npm run build",
+  "outputDirectory": "app/frontend/.next",
+  "installCommand": "cd app/frontend && npm install",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://finance-os-backend.railway.app/api"
+  }
+}

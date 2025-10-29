@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id         String   @id @default(uuid())
+  name       String
+  gstin      String?
+  currency   String   @default("INR")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users              User[]
+  customers          Customer[]
+  vendors            Vendor[]
+  products           Product[]
+  prices             Price[]
+  quotes             Quote[]
+  invoices           Invoice[]
+  payments           Payment[]
+  approval_policies  ApprovalPolicy[]
+  approval_tasks     ApprovalTask[]
+  audit_logs         AuditLog[]
+  webhook_events     WebhookEvent[]
+  file_blobs         FileBlob[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  org_id          String
+  email           String
+  hashed_password String
+  role            Role
+  status          UserStatus @default(active)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  organization   Organization   @relation(fields: [org_id], references: [id])
+  approval_tasks ApprovalTask[]
+  audit_logs     AuditLog[]
+
+  @@unique([org_id, email])
+  @@map("users")
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  org_id          String
+  name            String
+  email           String?
+  billing_address Json?
+  currency        String   @default("INR")
+  dunning_level   Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  quotes       Quote[]
+  invoices     Invoice[]
+
+  @@map("customers")
+}
+
+model Vendor {
+  id            String   @id @default(uuid())
+  org_id        String
+  name          String
+  email         String?
+  payment_terms Int      @default(30)
+  gstin         String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  invoices     Invoice[]
+
+  @@map("vendors")
+}
+
+model Product {
+  id       String      @id @default(uuid())
+  org_id   String
+  name     String
+  sku      String
+  type     ProductType
+  tax_code String?
+  uom      String?
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  prices       Price[]
+  quote_items  QuoteItem[]
+  invoice_lines InvoiceLine[]
+
+  @@unique([org_id, sku])
+  @@map("products")
+}
+
+model Price {
+  id             String  @id @default(uuid())
+  org_id         String
+  product_id     String
+  currency       String
+  unit_amount    Int
+  billing_period String?
+  tiering        Json?
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  product      Product      @relation(fields: [product_id], references: [id])
+
+  @@map("prices")
+}
+
+model Quote {
+  id             String      @id @default(uuid())
+  org_id         String
+  customer_id    String
+  status         QuoteStatus @default(draft)
+  currency       String
+  subtotal       Int
+  tax            Int
+  discount_total Int
+  total          Int
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  customer     Customer     @relation(fields: [customer_id], references: [id])
+  items        QuoteItem[]
+  invoices     Invoice[]
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id               String @id @default(uuid())
+  quote_id         String
+  product_id       String
+  qty              Float
+  unit_amount      Int
+  discount_percent Float  @default(0)
+
+  quote   Quote   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id])
+
+  @@map("quote_items")
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  org_id      String
+  customer_id String?
+  vendor_id   String?
+  quote_id    String?
+  kind        InvoiceKind
+  status      InvoiceStatus @default(draft)
+  currency    String
+  subtotal    Int
+  tax         Int
+  total       Int
+  due_date    DateTime
+  source      InvoiceSource
+  po_number   String?
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+
+  organization         Organization           @relation(fields: [org_id], references: [id])
+  customer             Customer?              @relation(fields: [customer_id], references: [id])
+  vendor               Vendor?                @relation(fields: [vendor_id], references: [id])
+  quote                Quote?                 @relation(fields: [quote_id], references: [id])
+  lines                InvoiceLine[]
+  payment_applications PaymentApplication[]
+
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String  @id @default(uuid())
+  invoice_id  String
+  product_id  String?
+  desc        String
+  qty         Float
+  unit_amount Int
+  tax_rate    Float   @default(0)
+
+  invoice Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [product_id], references: [id])
+
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id           String            @id @default(uuid())
+  org_id       String
+  direction    PaymentDirection
+  method       PaymentMethod
+  amount       Int
+  currency     String
+  received_on  DateTime
+  external_ref String?
+  created_at   DateTime          @default(now())
+
+  organization         Organization           @relation(fields: [org_id], references: [id])
+  payment_applications PaymentApplication[]
+
+  @@map("payments")
+}
+
+model PaymentApplication {
+  id             String @id @default(uuid())
+  payment_id     String
+  invoice_id     String
+  amount_applied Int
+
+  payment Payment @relation(fields: [payment_id], references: [id])
+  invoice Invoice @relation(fields: [invoice_id], references: [id])
+
+  @@map("payment_applications")
+}
+
+model ApprovalPolicy {
+  id         String @id @default(uuid())
+  org_id     String
+  scope      String
+  rules_json Json
+
+  organization Organization @relation(fields: [org_id], references: [id])
+
+  @@map("approval_policies")
+}
+
+model ApprovalTask {
+  id          String           @id @default(uuid())
+  org_id      String
+  entity_type String
+  entity_id   String
+  status      ApprovalStatus   @default(pending)
+  assignee_id String
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  assignee     User         @relation(fields: [assignee_id], references: [id])
+
+  @@map("approval_tasks")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  org_id      String
+  actor_id    String?
+  entity_type String
+  entity_id   String
+  action      String
+  diff_json   Json?
+  created_at  DateTime @default(now())
+
+  organization Organization @relation(fields: [org_id], references: [id])
+  actor        User?        @relation(fields: [actor_id], references: [id])
+
+  @@map("audit_logs")
+}
+
+model WebhookEvent {
+  id           String    @id @default(uuid())
+  org_id       String
+  provider     String
+  event_type   String
+  payload_json Json
+  processed_at DateTime?
+  created_at   DateTime  @default(now())
+
+  organization Organization @relation(fields: [org_id], references: [id])
+
+  @@map("webhook_events")
+}
+
+model FileBlob {
+  id                  String  @id @default(uuid())
+  org_id              String
+  object_key          String
+  mime                String
+  size                Int
+  sha256              String
+  linked_entity_type  String?
+  linked_entity_id    String?
+  created_at          DateTime @default(now())
+
+  organization Organization @relation(fields: [org_id], references: [id])
+
+  @@map("file_blobs")
+}
+
+enum Role {
+  Owner
+  FinanceManager
+  APClerk
+  ARClerk
+  SalesRep
+  Approver
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+enum ProductType {
+  one_time
+  subscription
+  usage
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  approved
+  rejected
+}
+
+enum InvoiceKind {
+  AR
+  AP
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  partially_paid
+  paid
+  void
+}
+
+enum InvoiceSource {
+  CPQ
+  Manual
+  PO
+}
+
+enum PaymentDirection {
+  in
+  out
+}
+
+enum PaymentMethod {
+  upi
+  pg
+  neft
+  rtgs
+  cash
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}

@@ -1,0 +1,7 @@
+Date,Description,Amount,Balance,Reference
+2024-10-01,Payment from TechStart Inc,59000,150000,TXN001
+2024-10-02,Payment from Global Solutions,163000,313000,TXN002
+2024-10-03,Office Rent,-25000,288000,TXN003
+2024-10-05,Payment from Innovation Labs,30000,318000,TXN004
+2024-10-07,Vendor Payment - Acme Corp,-11800,306200,TXN005
+2024-10-10,Payment from TechStart Inc,118000,424200,TXN006

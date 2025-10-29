@@ -1,0 +1,9 @@
+Name,SKU,Type,Unit Price (INR),Tax Code,UOM,Description
+Professional Services,PROF-001,one_time,50000,GST18,hours,"Expert consulting and professional services"
+Software License,SW-001,subscription,10000,GST18,license,"Monthly software license subscription"
+Consulting Hours,CONS-001,usage,5000,GST18,hours,"Hourly consulting services"
+Training Program,TRAIN-001,one_time,25000,GST18,program,"Comprehensive training program"
+Support Package,SUPP-001,subscription,15000,GST18,package,"Monthly support and maintenance"
+Custom Development,DEV-001,usage,8000,GST18,hours,"Custom software development services"
+Data Analytics,ANALYTICS-001,subscription,20000,GST18,license,"Monthly data analytics platform"
+Cloud Storage,STORAGE-001,usage,100,GST18,GB,"Cloud storage per GB per month"
