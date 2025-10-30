@@ -35,7 +35,7 @@ export class DashboardService {
       where: {
         org_id: orgId,
         kind: 'AP',
-        status: { in: ['issued', 'approved'] },
+        status: { in: ['issued'] },
         due_date: { lte: sevenDaysFromNow },
       },
       _sum: { total: true },
