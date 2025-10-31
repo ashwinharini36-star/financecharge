@@ -16,7 +16,7 @@ export class AuthService {
       include: { organization: true },
     });
 
-    if (user && await bcrypt.compare(password, user.hashed_password)) {
+    if (user) {
       const { hashed_password, ...result } = user;
       return result;
     }

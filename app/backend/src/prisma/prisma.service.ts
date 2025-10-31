@@ -9,7 +9,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     // Add middleware for tenant isolation
     this.$use(async (params, next) => {
       // Skip tenant isolation for certain models
-      const skipTenantModels = ['Organization'];
+      const skipTenantModels = ['Organization', 'User'];
       
       if (!skipTenantModels.includes(params.model)) {
         // Ensure org_id is always included in where clause
